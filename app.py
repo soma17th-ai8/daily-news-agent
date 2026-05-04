@@ -4,6 +4,7 @@ import streamlit as st
 
 from daily_news_agent.ai_client import DemoAIClient, UpstageAIClient
 from daily_news_agent.config import Settings
+from daily_news_agent.models import BriefingResult
 from daily_news_agent.news_source import GoogleNewsRssClient
 from daily_news_agent.vector_store import ChromaArticleStore
 from daily_news_agent.workflow import DailyNewsWorkflow
@@ -19,6 +20,40 @@ def create_ai_client(settings: Settings) -> DemoAIClient | UpstageAIClient:
         document_embedding_model=settings.upstage_document_embedding_model,
         query_embedding_model=settings.upstage_query_embedding_model,
     )
+
+
+def create_workflow(settings: Settings) -> DailyNewsWorkflow:
+    return DailyNewsWorkflow(
+        news_source=GoogleNewsRssClient(timeout_seconds=settings.request_timeout_seconds),
+        vector_store=ChromaArticleStore(
+            path=settings.chroma_path,
+            collection_name=settings.chroma_collection_name,
+        ),
+        ai_client=create_ai_client(settings),
+    )
+
+
+def render_briefing_result(result: BriefingResult) -> None:
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("검색 키워드", len(result.keywords))
+    col2.metric("정제된 기사", result.collected_count)
+    col3.metric("새로 저장", result.stored_count)
+    col4.metric("이미 저장됨", result.skipped_existing_count)
+
+    if result.errors:
+        st.warning("\n".join(result.errors))
+
+    st.subheader("생성된 브리핑")
+    st.markdown(result.briefing_markdown)
+
+    st.subheader("선별된 기사")
+    for article in result.selected_articles:
+        with st.expander(article.title):
+            st.write(article.summary or "요약 없음")
+            st.write(f"출처: {article.source}")
+            st.write(f"발행일: {article.published_at or '알 수 없음'}")
+            st.write(f"키워드: {article.keyword}")
+            st.link_button("원문 열기", article.link)
 
 
 def main() -> None:
@@ -44,49 +79,80 @@ def main() -> None:
 
     interest = st.text_input("관심 분야", value="AI 산업 동향")
     keyword_text = st.text_input("검색 키워드 3개", value="AI, 반도체, 스타트업")
+    input_signature = (interest, keyword_text)
 
-    if st.button("뉴스 수집 및 브리핑 생성", type="primary"):
+    collect_col, briefing_col = st.columns(2)
+    with collect_col:
+        collect_clicked = st.button("뉴스 수집 및 저장", type="primary", use_container_width=True)
+    with briefing_col:
+        has_collection = (
+            "collection_result" in st.session_state
+            and st.session_state.get("collection_signature") == input_signature
+        )
+        briefing_clicked = st.button(
+            "브리핑 생성",
+            disabled=not has_collection,
+            use_container_width=True,
+        )
+
+    if not has_collection:
+        if "collection_result" in st.session_state:
+            st.warning("입력값이 바뀌었습니다. 현재 관심 분야와 키워드로 다시 수집해야 브리핑을 생성할 수 있습니다.")
+        else:
+            st.info("먼저 뉴스를 수집하고 Vector DB에 저장한 뒤 브리핑을 생성할 수 있습니다.")
+
+    if collect_clicked:
         try:
-            ai_client = create_ai_client(settings)
-            vector_store = ChromaArticleStore(
-                path=settings.chroma_path,
-                collection_name=settings.chroma_collection_name,
-            )
-            workflow = DailyNewsWorkflow(
-                news_source=GoogleNewsRssClient(timeout_seconds=settings.request_timeout_seconds),
-                vector_store=vector_store,
-                ai_client=ai_client,
-            )
-
-            with st.spinner("뉴스를 수집하고 브리핑을 생성하는 중입니다..."):
-                result = workflow.run(
+            workflow = create_workflow(settings)
+            with st.status("뉴스 수집 및 저장", expanded=True) as status:
+                result = workflow.collect_and_store(
                     interest=interest,
                     keyword_text=keyword_text,
                     per_keyword_limit=int(per_keyword_limit),
-                    top_k=int(top_k),
+                    progress=status.write,
                 )
+                status.update(label="뉴스 수집 및 저장 완료", state="complete")
 
             col1, col2, col3 = st.columns(3)
             col1.metric("검색 키워드", len(result.keywords))
             col2.metric("정제된 기사", result.collected_count)
-            col3.metric("Vector DB 저장", result.stored_count)
+            col3.metric("새로 저장", result.stored_count)
+            st.metric("이미 저장되어 건너뛴 기사", result.skipped_existing_count)
 
             if result.errors:
                 st.warning("\n".join(result.errors))
 
-            st.subheader("생성된 브리핑")
-            st.markdown(result.briefing_markdown)
-
-            st.subheader("선별된 기사")
-            for article in result.selected_articles:
-                with st.expander(article.title):
-                    st.write(article.summary or "요약 없음")
-                    st.write(f"출처: {article.source}")
-                    st.write(f"발행일: {article.published_at or '알 수 없음'}")
-                    st.write(f"키워드: {article.keyword}")
-                    st.link_button("원문 열기", article.link)
+            st.session_state["collection_result"] = result
+            st.session_state["collection_signature"] = input_signature
+            st.session_state.pop("briefing_result", None)
+            st.success("수집 결과가 저장되었습니다. 이제 브리핑을 생성할 수 있습니다.")
+            st.rerun()
         except Exception as exc:
             st.error(str(exc))
+
+    if briefing_clicked:
+        try:
+            workflow = create_workflow(settings)
+            collection_result = st.session_state["collection_result"]
+            with st.status("브리핑 생성", expanded=True) as status:
+                briefing_result = workflow.generate_briefing(
+                    interest=collection_result.interest,
+                    keywords=collection_result.keywords,
+                    top_k=int(top_k),
+                    fallback_articles=collection_result.collected_articles,
+                    collected_count=collection_result.collected_count,
+                    stored_count=collection_result.stored_count,
+                    skipped_existing_count=collection_result.skipped_existing_count,
+                    errors=collection_result.errors,
+                    progress=status.write,
+                )
+                status.update(label="브리핑 생성 완료", state="complete")
+            st.session_state["briefing_result"] = briefing_result
+        except Exception as exc:
+            st.error(str(exc))
+
+    if "briefing_result" in st.session_state:
+        render_briefing_result(st.session_state["briefing_result"])
 
 
 if __name__ == "__main__":
