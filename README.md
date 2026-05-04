@@ -66,8 +66,8 @@ streamlit run app.py
 
 ```env
 UPSTAGE_API_KEY=your_api_key_here
-UPSTAGE_BASE_URL=https://api.upstage.ai/v1/solar
-UPSTAGE_CHAT_MODEL=solar-mini
+UPSTAGE_BASE_URL=https://api.upstage.ai/v1
+UPSTAGE_CHAT_MODEL=solar-pro3
 UPSTAGE_DOCUMENT_EMBEDDING_MODEL=solar-embedding-1-large-passage
 UPSTAGE_QUERY_EMBEDDING_MODEL=solar-embedding-1-large-query
 ```

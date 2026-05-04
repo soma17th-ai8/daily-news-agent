@@ -44,8 +44,8 @@ class Settings:
 
         return cls(
             upstage_api_key=api_key,
-            upstage_base_url=os.getenv("UPSTAGE_BASE_URL", "https://api.upstage.ai/v1/solar"),
-            upstage_chat_model=os.getenv("UPSTAGE_CHAT_MODEL", "solar-mini"),
+            upstage_base_url=os.getenv("UPSTAGE_BASE_URL", "https://api.upstage.ai/v1"),
+            upstage_chat_model=os.getenv("UPSTAGE_CHAT_MODEL", "solar-pro3"),
             upstage_document_embedding_model=document_model,
             upstage_query_embedding_model=query_model,
             chroma_path=os.getenv("CHROMA_PATH", "data/chroma"),

@@ -98,7 +98,7 @@ Vector DB 저장 시 document text는 `title + summary`를 사용한다. metadat
 
 - 문서 embedding: `solar-embedding-1-large-passage`
 - query embedding: `solar-embedding-1-large-query`
-- 브리핑 생성: `solar-mini`
+- 브리핑 생성: `solar-pro3`
 - model 이름은 `.env`에서 변경 가능하다.
 
 ## 오류 처리
