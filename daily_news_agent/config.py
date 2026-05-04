@@ -19,13 +19,14 @@ class Settings:
     request_timeout_seconds: int
 
     @classmethod
-    def from_env(cls) -> "Settings":
-        try:
-            from dotenv import load_dotenv
+    def from_env(cls, load_env: bool = True) -> "Settings":
+        if load_env:
+            try:
+                from dotenv import load_dotenv
 
-            load_dotenv()
-        except ImportError:
-            pass
+                load_dotenv()
+            except ImportError:
+                pass
 
         api_key = os.getenv("UPSTAGE_API_KEY", "").strip()
         document_model = os.getenv(
@@ -49,8 +50,8 @@ class Settings:
             upstage_query_embedding_model=query_model,
             chroma_path=os.getenv("CHROMA_PATH", "data/chroma"),
             chroma_collection_name=collection_name,
-            per_keyword_limit=int(os.getenv("PER_KEYWORD_LIMIT", "10")),
-            top_k=int(os.getenv("TOP_K", "8")),
+            per_keyword_limit=int(os.getenv("PER_KEYWORD_LIMIT", "3")),
+            top_k=int(os.getenv("TOP_K", "5")),
             request_timeout_seconds=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "10")),
         )
 
@@ -58,4 +59,3 @@ class Settings:
 def _slugify(value: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9_-]+", "_", value).strip("_").lower()
     return slug or "default"
-

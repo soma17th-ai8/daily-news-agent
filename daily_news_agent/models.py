@@ -57,4 +57,15 @@ class BriefingResult:
     selected_articles: list[NewsArticle]
     briefing_markdown: str
     errors: list[str]
+    skipped_existing_count: int = 0
 
+
+@dataclass(frozen=True)
+class CollectionResult:
+    interest: str
+    keywords: list[str]
+    collected_articles: list[NewsArticle]
+    collected_count: int
+    stored_count: int
+    skipped_existing_count: int
+    errors: list[str]
