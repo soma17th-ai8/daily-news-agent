@@ -129,3 +129,26 @@ Vector DB 저장 시 document text는 `title + summary`를 사용한다. metadat
 5. 하루 1회 자동 수집 workflow를 추가한다.
 6. 팀 작업이 본격화되면 FE, BE, DE, AI workflow를 분리한다.
 
+## 2026-05-05 개선 스펙
+
+### 목표
+
+실제 Upstage API 사용 시 버튼 클릭 후 오래 기다리는 문제를 줄이고, 사용자가 어느 단계에서 시간이 걸리는지 알 수 있게 한다. 또한 이후 품질 개선을 위해 검색 기준과 평가 기준을 문서화한다.
+
+### 변경 범위
+
+- 기본 수집 기사 수를 키워드당 10개에서 3개로 줄인다.
+- 기본 요약 기사 수를 8개에서 5개로 줄인다.
+- 이미 Chroma에 저장된 기사 링크는 다시 embedding하지 않는다.
+- 뉴스 수집/저장 단계와 브리핑 생성 단계를 UI에서 분리한다.
+- Streamlit에 단계별 진행 상태를 표시한다.
+- 관련 기사 검색 시 키워드 metadata filter를 먼저 적용하고, 결과가 없으면 전체 collection similarity search로 fallback한다.
+- 브리핑 품질 평가 체크리스트 문서를 추가한다.
+
+### 검증 기준
+
+- 중복 링크가 이미 저장되어 있으면 Upstage embedding 호출 대상에서 제외된다.
+- query 시 검색 키워드 metadata filter가 Chroma에 전달된다.
+- 기본 설정값은 `PER_KEYWORD_LIMIT=3`, `TOP_K=5`다.
+- 사용자는 UI에서 수집/저장과 브리핑 생성을 따로 실행할 수 있다.
+- 단위 테스트, Python compile check, 실제 Upstage 기반 workflow 검증이 통과한다.

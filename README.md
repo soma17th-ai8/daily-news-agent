@@ -39,6 +39,7 @@
 
 - 개발 규칙: [`AGENTS.md`](AGENTS.md)
 - 로컬 MVP 스펙: [`docs/specs/2026-05-04-local-mvp-spec.md`](docs/specs/2026-05-04-local-mvp-spec.md)
+- 브리핑 품질 평가: [`docs/quality/news-briefing-evaluation.md`](docs/quality/news-briefing-evaluation.md)
 
 ## 로컬 실행
 
@@ -56,6 +57,8 @@ streamlit run app.py
 관심 분야: AI 산업 동향
 검색 키워드 3개: AI, 반도체, 스타트업
 ```
+
+기본 설정은 API 호출 시간을 줄이기 위해 키워드별 기사 3건, 브리핑 기사 5건으로 제한합니다. 화면에서는 먼저 `뉴스 수집 및 저장`을 누른 뒤, 수집이 끝나면 `브리핑 생성`을 눌러 결과를 확인합니다.
 
 ## Upstage API 설정
 
@@ -89,7 +92,7 @@ python3 -m unittest discover -s tests
 → 중복 링크 제거
 → 기사별 embedding 생성
 → Chroma Vector DB 저장
-→ 관심 분야 query embedding으로 similarity search
+→ 검색 키워드 metadata filter와 관심 분야 query embedding으로 similarity search
 → Top-K 기사로 브리핑 생성
 → Streamlit 화면 출력
 ```
