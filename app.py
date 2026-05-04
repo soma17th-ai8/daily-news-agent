@@ -56,6 +56,21 @@ def render_briefing_result(result: BriefingResult) -> None:
             st.link_button("원문 열기", article.link)
 
 
+def render_collection_ready_state() -> None:
+    result = st.session_state["collection_result"]
+    st.success("뉴스 수집 및 저장이 완료되었습니다. 브리핑 생성 버튼을 누를 수 있습니다.")
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("검색 키워드", len(result.keywords))
+    col2.metric("정제된 기사", result.collected_count)
+    col3.metric("새로 저장", result.stored_count)
+    col4.metric("이미 저장됨", result.skipped_existing_count)
+
+    st.caption(f"수집 키워드: {', '.join(result.keywords)}")
+    if result.errors:
+        st.warning("\n".join(result.errors))
+
+
 def main() -> None:
     settings = Settings.from_env()
 
@@ -89,13 +104,17 @@ def main() -> None:
             "collection_result" in st.session_state
             and st.session_state.get("collection_signature") == input_signature
         )
+        briefing_button_label = "브리핑 생성 가능" if has_collection else "브리핑 생성"
         briefing_clicked = st.button(
-            "브리핑 생성",
+            briefing_button_label,
             disabled=not has_collection,
             use_container_width=True,
+            help=None if has_collection else "뉴스 수집 및 저장을 먼저 완료해야 합니다.",
         )
 
-    if not has_collection:
+    if has_collection and "briefing_result" not in st.session_state:
+        render_collection_ready_state()
+    elif not has_collection:
         if "collection_result" in st.session_state:
             st.warning("입력값이 바뀌었습니다. 현재 관심 분야와 키워드로 다시 수집해야 브리핑을 생성할 수 있습니다.")
         else:
@@ -113,19 +132,9 @@ def main() -> None:
                 )
                 status.update(label="뉴스 수집 및 저장 완료", state="complete")
 
-            col1, col2, col3 = st.columns(3)
-            col1.metric("검색 키워드", len(result.keywords))
-            col2.metric("정제된 기사", result.collected_count)
-            col3.metric("새로 저장", result.stored_count)
-            st.metric("이미 저장되어 건너뛴 기사", result.skipped_existing_count)
-
-            if result.errors:
-                st.warning("\n".join(result.errors))
-
             st.session_state["collection_result"] = result
             st.session_state["collection_signature"] = input_signature
             st.session_state.pop("briefing_result", None)
-            st.success("수집 결과가 저장되었습니다. 이제 브리핑을 생성할 수 있습니다.")
             st.rerun()
         except Exception as exc:
             st.error(str(exc))
