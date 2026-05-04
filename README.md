@@ -1,0 +1,104 @@
+# Daily News Agent
+
+관심 분야를 입력하면 Google News RSS에서 하루치 뉴스를 수집하고, 로컬 Chroma Vector DB에 저장한 뒤, 관련 기사를 선별해 일일 뉴스 브리핑을 생성하는 로컬 데모입니다.
+
+## MVP 범위
+
+- 뉴스 소스는 Google News RSS 하나만 사용합니다.
+- 관심 키워드는 최대 3개를 입력합니다.
+- 기사 수집 범위는 최근 하루(`when:1d`)로 제한합니다.
+- Vector DB는 로컬 Chroma를 사용합니다.
+- Upstage API key가 있으면 Upstage embedding/chat 모델을 사용합니다.
+- Upstage API key가 없으면 demo 모드로 실행되어 전체 흐름과 출력 형태를 확인할 수 있습니다.
+
+## 구조
+
+```text
+.
+├── app.py
+├── daily_news_agent/
+│   ├── ai_client.py
+│   ├── config.py
+│   ├── models.py
+│   ├── news_source.py
+│   ├── preprocessor.py
+│   ├── summarizer.py
+│   ├── vector_store.py
+│   └── workflow.py
+├── docs/
+│   └── specs/
+├── data/
+├── tests/
+├── AGENTS.md
+├── .env.example
+├── requirements.txt
+└── README.md
+```
+
+## 개발 문서
+
+- 개발 규칙: [`AGENTS.md`](AGENTS.md)
+- 로컬 MVP 스펙: [`docs/specs/2026-05-04-local-mvp-spec.md`](docs/specs/2026-05-04-local-mvp-spec.md)
+
+## 로컬 실행
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+streamlit run app.py
+```
+
+브라우저에서 Streamlit 화면이 열리면 다음 값을 입력해 실행합니다.
+
+```text
+관심 분야: AI 산업 동향
+검색 키워드 3개: AI, 반도체, 스타트업
+```
+
+## Upstage API 설정
+
+`.env` 파일에 API key를 넣으면 demo 모드 대신 Upstage 모델을 사용합니다.
+
+```env
+UPSTAGE_API_KEY=your_api_key_here
+UPSTAGE_BASE_URL=https://api.upstage.ai/v1/solar
+UPSTAGE_CHAT_MODEL=solar-mini
+UPSTAGE_DOCUMENT_EMBEDDING_MODEL=solar-embedding-1-large-passage
+UPSTAGE_QUERY_EMBEDDING_MODEL=solar-embedding-1-large-query
+```
+
+API key는 repository에 커밋하지 않습니다.
+
+## 테스트
+
+현재 테스트는 외부 API나 네트워크 없이 실행됩니다.
+
+```bash
+python3 -m unittest discover -s tests
+```
+
+## 현재 workflow
+
+```text
+관심 분야 입력
+→ 검색 키워드 최대 3개 정규화
+→ Google News RSS에서 키워드별 최근 하루 뉴스 수집
+→ 제목/요약/링크/출처/발행일 정제
+→ 중복 링크 제거
+→ 기사별 embedding 생성
+→ Chroma Vector DB 저장
+→ 관심 분야 query embedding으로 similarity search
+→ Top-K 기사로 브리핑 생성
+→ Streamlit 화면 출력
+```
+
+## 다음 개선 후보
+
+- Naver Search API 추가 또는 Google News RSS와 병행
+- LLM 기반 관심 분야 키워드 확장
+- 기사 자동 태깅 파이프라인 추가
+- 날짜, 출처, 키워드 메타데이터 필터링 강화
+- 하루 1회 자동 수집 스케줄러 추가
+- 팀 개발을 위한 FE/BE/DE/AI workflow 분리
