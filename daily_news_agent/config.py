@@ -17,7 +17,6 @@ class Settings:
     per_keyword_limit: int
     top_k: int
     request_timeout_seconds: int
-    email_mode: str
     email_from: str
     email_to_default: str
     email_outbox_path: str
@@ -63,7 +62,6 @@ class Settings:
             per_keyword_limit=int(os.getenv("PER_KEYWORD_LIMIT", "3")),
             top_k=int(os.getenv("TOP_K", "5")),
             request_timeout_seconds=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "10")),
-            email_mode=os.getenv("EMAIL_MODE", "demo").strip().lower() or "demo",
             email_from=os.getenv("EMAIL_FROM", "").strip(),
             email_to_default=os.getenv("EMAIL_TO_DEFAULT", "").strip(),
             email_outbox_path=os.getenv("EMAIL_OUTBOX_PATH", "data/outbox").strip() or "data/outbox",
@@ -76,12 +74,6 @@ class Settings:
         )
 
     def validate_mail_settings(self) -> None:
-        if self.email_mode not in {"demo", "smtp"}:
-            raise ValueError("EMAIL_MODE는 demo 또는 smtp 여야 합니다.")
-
-        if self.email_mode == "demo":
-            return
-
         if not self.email_from:
             raise ValueError("smtp 메일 전송에는 EMAIL_FROM 설정이 필요합니다.")
         if not self.smtp_host:
