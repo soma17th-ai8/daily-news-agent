@@ -11,3 +11,4 @@ data/*.sqlite3
 data/*.db
 
 .streamlit/secrets.toml
+.idea
