@@ -17,6 +17,16 @@ class Settings:
     per_keyword_limit: int
     top_k: int
     request_timeout_seconds: int
+    email_mode: str
+    email_from: str
+    email_to_default: str
+    email_outbox_path: str
+    smtp_host: str
+    smtp_port: int
+    smtp_username: str
+    smtp_password: str
+    smtp_use_tls: bool
+    smtp_use_ssl: bool
 
     @classmethod
     def from_env(cls, load_env: bool = True) -> "Settings":
@@ -53,9 +63,55 @@ class Settings:
             per_keyword_limit=int(os.getenv("PER_KEYWORD_LIMIT", "3")),
             top_k=int(os.getenv("TOP_K", "5")),
             request_timeout_seconds=int(os.getenv("REQUEST_TIMEOUT_SECONDS", "10")),
+            email_mode=os.getenv("EMAIL_MODE", "demo").strip().lower() or "demo",
+            email_from=os.getenv("EMAIL_FROM", "").strip(),
+            email_to_default=os.getenv("EMAIL_TO_DEFAULT", "").strip(),
+            email_outbox_path=os.getenv("EMAIL_OUTBOX_PATH", "data/outbox").strip() or "data/outbox",
+            smtp_host=os.getenv("SMTP_HOST", "").strip(),
+            smtp_port=int(os.getenv("SMTP_PORT", "587")),
+            smtp_username=os.getenv("SMTP_USERNAME", "").strip(),
+            smtp_password=os.getenv("SMTP_PASSWORD", ""),
+            smtp_use_tls=_parse_bool(os.getenv("SMTP_USE_TLS", "true")),
+            smtp_use_ssl=_parse_bool(os.getenv("SMTP_USE_SSL", "false")),
         )
+
+    def validate_mail_settings(self) -> None:
+        if self.email_mode not in {"demo", "smtp"}:
+            raise ValueError("EMAIL_MODE는 demo 또는 smtp 여야 합니다.")
+
+        if self.email_mode == "demo":
+            return
+
+        if not self.email_from:
+            raise ValueError("smtp 메일 전송에는 EMAIL_FROM 설정이 필요합니다.")
+        if not self.smtp_host:
+            raise ValueError("smtp 메일 전송에는 SMTP_HOST 설정이 필요합니다.")
+        if not self.smtp_username:
+            raise ValueError("smtp 메일 전송에는 SMTP_USERNAME 설정이 필요합니다.")
+        if not self.smtp_password:
+            raise ValueError("smtp 메일 전송에는 SMTP_PASSWORD 설정이 필요합니다.")
+        if self.smtp_use_tls and self.smtp_use_ssl:
+            raise ValueError("SMTP_USE_TLS와 SMTP_USE_SSL을 동시에 true로 설정할 수 없습니다.")
+
+        if self.smtp_host.lower() == "smtp.gmail.com":
+            self._validate_gmail_smtp_settings()
+
+    def _validate_gmail_smtp_settings(self) -> None:
+        if self.smtp_use_ssl:
+            if self.smtp_port != 465:
+                raise ValueError("Gmail SSL 사용 시 SMTP_PORT는 465를 권장합니다.")
+            return
+
+        if not self.smtp_use_tls:
+            raise ValueError("Gmail SMTP는 SMTP_USE_TLS=true 또는 SMTP_USE_SSL=true 설정이 필요합니다.")
+        if self.smtp_port != 587:
+            raise ValueError("Gmail TLS 사용 시 SMTP_PORT는 587을 권장합니다.")
 
 
 def _slugify(value: str) -> str:
     slug = re.sub(r"[^a-zA-Z0-9_-]+", "_", value).strip("_").lower()
     return slug or "default"
+
+
+def _parse_bool(value: str) -> bool:
+    return value.strip().lower() in {"1", "true", "yes", "on"}
