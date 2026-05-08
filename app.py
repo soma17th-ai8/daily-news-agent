@@ -4,6 +4,7 @@ import streamlit as st
 
 from daily_news_agent.ai_client import DemoAIClient, UpstageAIClient
 from daily_news_agent.config import Settings
+from daily_news_agent.mail_sender import SMTPMailClient, build_briefing_email_payload
 from daily_news_agent.models import BriefingResult
 from daily_news_agent.news_source import GoogleNewsRssClient
 from daily_news_agent.vector_store import ChromaArticleStore
@@ -31,6 +32,28 @@ def create_workflow(settings: Settings) -> DailyNewsWorkflow:
         ),
         ai_client=create_ai_client(settings),
     )
+
+
+def create_mail_client(settings: Settings) -> SMTPMailClient:
+    return SMTPMailClient(
+        host=settings.smtp_host,
+        port=settings.smtp_port,
+        username=settings.smtp_username,
+        password=settings.smtp_password,
+        use_tls=settings.smtp_use_tls,
+        use_ssl=settings.smtp_use_ssl,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+
+
+def send_briefing_email(settings: Settings, briefing_result: BriefingResult, recipient: str) -> None:
+    settings.validate_mail_settings()
+    payload = build_briefing_email_payload(
+        briefing_result=briefing_result,
+        sender=settings.email_from,
+        recipient=recipient,
+    )
+    create_mail_client(settings).send(payload)
 
 
 def render_briefing_result(result: BriefingResult) -> None:
@@ -69,6 +92,35 @@ def render_collection_ready_state() -> None:
     st.caption(f"수집 키워드: {', '.join(result.keywords)}")
     if result.errors:
         st.warning("\n".join(result.errors))
+
+
+def render_subscription_section(settings: Settings) -> None:
+    st.divider()
+    st.subheader("메일로 뉴스 받기")
+    st.caption("현재 화면에서 생성한 브리핑 결과를 메일로 전송합니다.")
+
+    default_recipient = st.session_state.get("subscription_email", settings.email_to_default)
+    recipient = st.text_input(
+        "수신자 이메일",
+        value=default_recipient,
+        key="subscription_email",
+        placeholder="recipient@example.com",
+    )
+    has_briefing = "briefing_result" in st.session_state
+
+    if st.button(
+        "전송하기",
+        use_container_width=True,
+        disabled=not has_briefing,
+        help=None if has_briefing else "브리핑을 먼저 생성해 주세요.",
+    ):
+        try:
+            if not recipient.strip():
+                raise ValueError("수신자 이메일을 입력해 주세요.")
+            send_briefing_email(settings, st.session_state["briefing_result"], recipient.strip())
+            st.success(f"{recipient.strip()} 주소로 브리핑 메일을 보냈습니다.")
+        except Exception as exc:
+            st.error(str(exc))
 
 
 def main() -> None:
@@ -162,6 +214,8 @@ def main() -> None:
 
     if "briefing_result" in st.session_state:
         render_briefing_result(st.session_state["briefing_result"])
+
+    render_subscription_section(settings)
 
 
 if __name__ == "__main__":
