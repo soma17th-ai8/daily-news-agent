@@ -28,6 +28,9 @@ class CountingAIClient:
     def generate_briefing(self, interest, articles):
         return f"{interest}: {len(articles)}건"
 
+    def generate_tags_batch(self, articles):
+        return [[article.keyword] for article in articles]
+
 
 class FakeVectorStore:
     def __init__(self, existing_ids=None, matches=None):
@@ -79,6 +82,21 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual([article.link for article in vector_store.upserted_articles], [fresh.link])
         self.assertEqual(len(ai_client.embedded_texts), 1)
         self.assertIn("새 기사", ai_client.embedded_texts[0])
+
+    def test_collect_and_store_tags_new_articles(self):
+        article = make_article("AI 정책 발표", "https://example.com/ai", "AI")
+        ai_client = CountingAIClient()
+        store = FakeVectorStore()
+        workflow = DailyNewsWorkflow(
+            news_source=FakeNewsSource({"AI": [article]}),
+            vector_store=store,
+            ai_client=ai_client,
+        )
+
+        workflow.collect_and_store("AI 동향", "AI")
+
+        self.assertEqual(len(store.upserted_articles), 1)
+        self.assertEqual(store.upserted_articles[0].tags, ["AI"])
 
     def test_generate_briefing_queries_with_keyword_metadata_filter_first(self):
         article = make_article("선별 기사", "https://example.com/selected", "AI")

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from hashlib import sha256
 
 
@@ -12,6 +12,7 @@ class NewsArticle:
     source: str
     published_at: str
     keyword: str
+    tags: list[str] = field(default_factory=list)
 
     @property
     def id(self) -> str:
@@ -28,10 +29,12 @@ class NewsArticle:
             "source": self.source,
             "published_at": self.published_at,
             "keyword": self.keyword,
+            "tags": ",".join(self.tags),
         }
 
     @classmethod
     def from_metadata(cls, metadata: dict[str, str]) -> "NewsArticle":
+        raw_tags = metadata.get("tags", "")
         return cls(
             title=metadata.get("title", ""),
             summary=metadata.get("summary", ""),
@@ -39,6 +42,7 @@ class NewsArticle:
             source=metadata.get("source", ""),
             published_at=metadata.get("published_at", ""),
             keyword=metadata.get("keyword", ""),
+            tags=[t for t in raw_tags.split(",") if t],
         )
 
 

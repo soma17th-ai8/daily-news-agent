@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable
 
 from daily_news_agent.ai_client import AIClient
@@ -72,6 +73,12 @@ class DailyNewsWorkflow:
 
         stored_count = 0
         if new_articles:
+            self._report(progress, f"새 기사 {len(new_articles)}건의 태그를 생성합니다.")
+            tags_list = self.ai_client.generate_tags_batch(new_articles)
+            new_articles = [
+                dataclasses.replace(article, tags=tags)
+                for article, tags in zip(new_articles, tags_list)
+            ]
             self._report(progress, f"새 기사 {len(new_articles)}건의 embedding을 생성합니다.")
             embeddings = self.ai_client.embed_documents(
                 [article.document_text() for article in new_articles]
