@@ -16,7 +16,9 @@
 
 ```text
 .
-├── app.py
+├── app.py              # Streamlit UI (레거시)
+├── server.py           # FastAPI 서버
+├── frontend/           # React 프론트엔드
 ├── daily_news_agent/
 │   ├── ai_client.py
 │   ├── config.py
@@ -41,26 +43,59 @@
 
 - 개발 규칙: [`AGENTS.md`](AGENTS.md)
 - 로컬 MVP 스펙: [`docs/specs/2026-05-04-local-mvp-spec.md`](docs/specs/2026-05-04-local-mvp-spec.md)
+- FE/BE 분리 스펙: [`docs/specs/2026-05-09-fe-be-separation-spec.md`](docs/specs/2026-05-09-fe-be-separation-spec.md)
 - 브리핑 품질 평가: [`docs/quality/news-briefing-evaluation.md`](docs/quality/news-briefing-evaluation.md)
 
-## 로컬 실행
+## 로컬 실행 (React + FastAPI)
+
+터미널 두 개를 열어 각각 실행합니다.
+
+**백엔드 (FastAPI)**
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
-streamlit run app.py
+uvicorn server:app --reload --port 8000
 ```
 
-브라우저에서 Streamlit 화면이 열리면 다음 값을 입력해 실행합니다.
+두 번째 실행부터는 venv 활성화 후 바로 uvicorn을 실행합니다.
+
+```bash
+source .venv/bin/activate
+uvicorn server:app --reload --port 8000
+```
+
+**프론트엔드 (React)**
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+두 번째 실행부터는 `npm install` 없이 바로 실행합니다.
+
+```bash
+cd frontend
+npm run dev
+```
+
+브라우저에서 `http://localhost:5173`으로 접속합니다.
 
 ```text
 관심 분야: AI 산업 동향
 검색 키워드 3개: AI, 반도체, 스타트업
 ```
 
-기본 설정은 API 호출 시간을 줄이기 위해 키워드별 기사 3건, 브리핑 기사 5건으로 제한합니다. 화면에서는 먼저 `뉴스 수집 및 저장`을 누른 뒤, 수집이 끝나면 `브리핑 생성`을 눌러 결과를 확인합니다.
+기본 설정은 API 호출 시간을 줄이기 위해 키워드별 기사 3건, 브리핑 기사 5건으로 제한합니다. 먼저 `뉴스 수집 및 저장`을 누른 뒤, 수집이 끝나면 `브리핑 생성`을 눌러 결과를 확인합니다.
+
+## 로컬 실행 (Streamlit, 레거시)
+
+```bash
+streamlit run app.py
+```
 
 ## Upstage API 설정
 
@@ -108,7 +143,7 @@ python3 -m unittest discover -s tests
 → Chroma Vector DB 저장
 → 검색 키워드 metadata filter와 관심 분야 query embedding으로 similarity search
 → Top-K 기사로 브리핑 생성
-→ Streamlit 화면 출력
+→ React 화면 출력
 ```
 
 ## 다음 개선 후보
@@ -117,4 +152,4 @@ python3 -m unittest discover -s tests
 - 기사 자동 태깅 파이프라인 추가
 - 날짜, 출처, 키워드 메타데이터 필터링 강화
 - 하루 1회 자동 수집 스케줄러 추가
-- 팀 개발을 위한 FE/BE/DE/AI workflow 분리
+- ~~팀 개발을 위한 FE/BE/DE/AI workflow 분리~~ (완료)

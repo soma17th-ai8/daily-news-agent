@@ -49,7 +49,7 @@ class DemoAIClient:
                 f"- **{article.title}**\n"
                 f"  - 핵심 내용: {summary}\n"
                 f"  - 출처: {article.source}\n"
-                f"  - 링크: {article.link}"
+                f"  - [원문 보기]({article.link})"
             )
 
         return (
