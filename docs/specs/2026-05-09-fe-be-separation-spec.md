@@ -131,6 +131,15 @@ cd frontend && npm run dev
 - **입력 필드**: focus 시 `ring-2 ring-indigo-100` 포커스 링 추가
 - **로딩 인디케이터**: `animate-pulse` → 스피너 SVG + 인디고/슬레이트 배경으로 변경
 
+## 이메일 HTML 템플릿 추가 (2026-05-09)
+
+`daily_news_agent/mail_sender.py`에 HTML 이메일 렌더링 추가. 기존 plain text 발송에서 HTML 멀티파트로 변경.
+
+- `_build_briefing_html`: 다크 헤더(Daily News Agent 로고 + 날짜/관심분야) + 브리핑 섹션 + 기사 카드(태그, 원문보기 버튼) + 푸터
+- `_markdown_to_html`: 브리핑 마크다운(`## 제목`, `- 항목`, `**굵게**`, `[링크](url)`)을 인라인 스타일 HTML로 변환
+- `_inline_markdown`: `[text](url)` → `<a>` 링크, `**bold**` → `<strong>` 변환
+- `build_briefing_email_payload`에 `html_text` 필드 추가 — 기존 `plain_text`는 폴백으로 유지
+
 ## UI 버그 수정 이력
 
 - **브리핑 링크 오버플로**: 긴 URL이 카드 밖으로 넘어가는 문제 → prose 영역에 `break-words`, `[&_a]:break-all` 추가
