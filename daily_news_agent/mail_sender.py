@@ -49,16 +49,16 @@ def build_briefing_email_payload(
 ) -> EmailMessagePayload:
     article_lines = []
     for article in briefing_result.selected_articles:
-        article_lines.append(
-            "\n".join(
-                [
-                    f"- 제목: {article.title}",
-                    f"  출처: {article.source}",
-                    f"  발행일: {article.published_at or '정보 없음'}",
-                    f"  링크: {article.link}",
-                ]
-            )
-        )
+        tag_str = ", ".join(f"#{t}" for t in article.tags) if article.tags else ""
+        lines = [
+            f"- 제목: {article.title}",
+            f"  출처: {article.source}",
+            f"  발행일: {article.published_at or '정보 없음'}",
+        ]
+        if tag_str:
+            lines.append(f"  태그: {tag_str}")
+        lines.append(f"  링크: {article.link}")
+        article_lines.append("\n".join(lines))
 
     sections = [briefing_result.briefing_markdown.strip()]
     if article_lines:

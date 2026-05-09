@@ -14,6 +14,7 @@ def format_articles_for_prompt(articles: list[NewsArticle]) -> str:
                     f"   출처: {article.source}",
                     f"   발행일: {article.published_at or '알 수 없음'}",
                     f"   키워드: {article.keyword}",
+                    f"   태그: {', '.join(article.tags) if article.tags else '없음'}",
                     f"   링크: {article.link}",
                 ]
             )
