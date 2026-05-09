@@ -76,6 +76,8 @@ def render_briefing_result(result: BriefingResult) -> None:
             st.write(f"출처: {article.source}")
             st.write(f"발행일: {article.published_at or '알 수 없음'}")
             st.write(f"키워드: {article.keyword}")
+            if article.tags:
+                st.write("태그: " + "  ".join(f"`#{tag}`" for tag in article.tags))
             st.link_button("원문 열기", article.link)
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from collections.abc import Callable
 
 from daily_news_agent.ai_client import AIClient
@@ -72,6 +73,12 @@ class DailyNewsWorkflow:
 
         stored_count = 0
         if new_articles:
+            self._report(progress, f"새 기사 {len(new_articles)}건의 태그를 생성합니다.")
+            tags_list = self.ai_client.generate_tags_batch(new_articles)
+            new_articles = [
+                dataclasses.replace(article, tags=tags)
+                for article, tags in zip(new_articles, tags_list)
+            ]
             self._report(progress, f"새 기사 {len(new_articles)}건의 embedding을 생성합니다.")
             embeddings = self.ai_client.embed_documents(
                 [article.document_text() for article in new_articles]
@@ -114,6 +121,7 @@ class DailyNewsWorkflow:
         )
         self._report(progress, f"선별 기사 {len(selected_articles)}건으로 브리핑을 생성합니다.")
         briefing = self.ai_client.generate_briefing(interest, selected_articles)
+        briefing = _append_tags_section(briefing, selected_articles)
 
         return BriefingResult(
             interest=interest,
@@ -143,3 +151,14 @@ class DailyNewsWorkflow:
     def _report(self, progress: Callable[[str], None] | None, message: str) -> None:
         if progress:
             progress(message)
+
+
+def _append_tags_section(briefing: str, articles: list[NewsArticle]) -> str:
+    tag_lines = [
+        f"- **{article.title}**: " + " ".join(f"`#{t}`" for t in article.tags)
+        for article in articles
+        if article.tags
+    ]
+    if not tag_lines:
+        return briefing
+    return briefing.rstrip() + "\n\n## 기사 태그\n" + "\n".join(tag_lines)

@@ -6,6 +6,7 @@ from typing import Protocol
 
 from daily_news_agent.models import NewsArticle
 from daily_news_agent.summarizer import build_briefing_messages
+from daily_news_agent.tagger import build_tagging_messages, parse_tags_response
 
 
 class AIClient(Protocol):
@@ -16,6 +17,9 @@ class AIClient(Protocol):
         raise NotImplementedError
 
     def generate_briefing(self, interest: str, articles: list[NewsArticle]) -> str:
+        raise NotImplementedError
+
+    def generate_tags_batch(self, articles: list[NewsArticle]) -> list[list[str]]:
         raise NotImplementedError
 
 
@@ -30,6 +34,9 @@ class DemoAIClient:
 
     def embed_query(self, text: str) -> list[float]:
         return self._embed(text)
+
+    def generate_tags_batch(self, articles: list[NewsArticle]) -> list[list[str]]:
+        return [article.keyword.split() for article in articles]
 
     def generate_briefing(self, interest: str, articles: list[NewsArticle]) -> str:
         if not articles:
@@ -104,6 +111,19 @@ class UpstageAIClient:
             input=[text],
         )
         return response.data[0].embedding
+
+    def generate_tags_batch(self, articles: list[NewsArticle]) -> list[list[str]]:
+        result = []
+        for article in articles:
+            messages = build_tagging_messages(article)
+            resp = self.client.chat.completions.create(
+                model=self.chat_model,
+                messages=messages,
+                temperature=0.1,
+                max_tokens=60,
+            )
+            result.append(parse_tags_response(resp.choices[0].message.content or ""))
+        return result
 
     def generate_briefing(self, interest: str, articles: list[NewsArticle]) -> str:
         if not articles:
