@@ -6,7 +6,8 @@ from daily_news_agent.ai_client import DemoAIClient, UpstageAIClient
 from daily_news_agent.config import Settings
 from daily_news_agent.mail_sender import SMTPMailClient, build_briefing_email_payload
 from daily_news_agent.models import BriefingResult
-from daily_news_agent.news_source import GoogleNewsRssClient
+from daily_news_agent.naver_news import NaverNewsClient
+from daily_news_agent.news_source import GoogleNewsRssClient, NewsRouter
 from daily_news_agent.vector_store import ChromaArticleStore
 from daily_news_agent.workflow import DailyNewsWorkflow
 
@@ -23,9 +24,26 @@ def create_ai_client(settings: Settings) -> DemoAIClient | UpstageAIClient:
     )
 
 
+def create_naver_client(settings: Settings) -> NaverNewsClient | None:
+    if not settings.naver_client_id or not settings.naver_client_secret:
+        return None
+    return NaverNewsClient(
+        client_id=settings.naver_client_id,
+        client_secret=settings.naver_client_secret,
+        timeout_seconds=settings.request_timeout_seconds,
+    )
+
+
+def create_news_router(settings: Settings) -> NewsRouter:
+    return NewsRouter(
+        google_client=GoogleNewsRssClient(timeout_seconds=settings.request_timeout_seconds),
+        naver_client=create_naver_client(settings),
+    )
+
+
 def create_workflow(settings: Settings) -> DailyNewsWorkflow:
     return DailyNewsWorkflow(
-        news_source=GoogleNewsRssClient(timeout_seconds=settings.request_timeout_seconds),
+        news_router=create_news_router(settings),
         vector_store=ChromaArticleStore(
             path=settings.chroma_path,
             collection_name=settings.chroma_collection_name,
@@ -135,6 +153,8 @@ def main() -> None:
     with st.sidebar:
         st.subheader("실행 설정")
         st.write(f"AI 모드: {'Upstage' if settings.upstage_api_key else 'Demo'}")
+        naver_enabled = bool(settings.naver_client_id and settings.naver_client_secret)
+        st.write(f"뉴스 소스: {'Naver(한글) + Google' if naver_enabled else 'Google only'}")
         st.write(f"Vector DB: `{settings.chroma_path}`")
         st.write(f"Collection: `{settings.chroma_collection_name}`")
         per_keyword_limit = st.number_input(

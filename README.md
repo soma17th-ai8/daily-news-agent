@@ -4,12 +4,13 @@
 
 ## MVP 범위
 
-- 뉴스 소스는 Google News RSS 하나만 사용합니다.
+- 뉴스 소스는 키워드별로 Naver Search News API(한글) 또는 Google News RSS(그 외)로 자동 라우팅됩니다.
 - 관심 키워드는 최대 3개를 입력합니다.
 - 기사 수집 범위는 최근 하루(`when:1d`)로 제한합니다.
 - Vector DB는 로컬 Chroma를 사용합니다.
 - Upstage API key가 있으면 Upstage embedding/chat 모델을 사용합니다.
 - Upstage API key가 없으면 demo 모드로 실행되어 전체 흐름과 출력 형태를 확인할 수 있습니다.
+- Naver Client ID/Secret이 없으면 한글 키워드도 Google News RSS로 자동 우회합니다.
 
 ## 구조
 
@@ -20,6 +21,7 @@
 │   ├── ai_client.py
 │   ├── config.py
 │   ├── models.py
+│   ├── naver_news.py
 │   ├── news_source.py
 │   ├── preprocessor.py
 │   ├── summarizer.py
@@ -74,6 +76,17 @@ UPSTAGE_QUERY_EMBEDDING_MODEL=solar-embedding-1-large-query
 
 API key는 repository에 커밋하지 않습니다.
 
+## Naver Search API 설정
+
+한글 키워드 수집 품질을 위해 Naver Search API(news 엔드포인트)를 사용합니다. [Naver Developers](https://developers.naver.com/apps/) 콘솔에서 앱을 등록하고 "검색" API를 추가하면 Client ID와 Client Secret을 발급받을 수 있습니다.
+
+```env
+NAVER_CLIENT_ID=your_client_id
+NAVER_CLIENT_SECRET=your_client_secret
+```
+
+두 값이 모두 설정되어 있으면 한글이 포함된 키워드는 Naver로, 그 외 키워드는 Google News RSS로 라우팅됩니다. 키가 없거나 Naver 호출이 실패하면 `errors`에 안내 메시지를 남기고 Google News RSS로 자동 우회합니다.
+
 ## 테스트
 
 현재 테스트는 외부 API나 네트워크 없이 실행됩니다.
@@ -87,7 +100,8 @@ python3 -m unittest discover -s tests
 ```text
 관심 분야 입력
 → 검색 키워드 최대 3개 정규화
-→ Google News RSS에서 키워드별 최근 하루 뉴스 수집
+→ 키워드별 한국어 감지 → Naver(한글) 또는 Google News RSS(그 외) 호출
+→ Naver 키 누락/호출 실패 시 Google News RSS로 자동 우회
 → 제목/요약/링크/출처/발행일 정제
 → 중복 링크 제거
 → 기사별 embedding 생성
@@ -99,7 +113,6 @@ python3 -m unittest discover -s tests
 
 ## 다음 개선 후보
 
-- Naver Search API 추가 또는 Google News RSS와 병행
 - LLM 기반 관심 분야 키워드 확장
 - 기사 자동 태깅 파이프라인 추가
 - 날짜, 출처, 키워드 메타데이터 필터링 강화

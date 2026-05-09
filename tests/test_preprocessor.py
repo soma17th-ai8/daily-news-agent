@@ -1,7 +1,7 @@
 import unittest
 
 from daily_news_agent.models import NewsArticle
-from daily_news_agent.preprocessor import deduplicate_articles, normalize_keywords
+from daily_news_agent.preprocessor import deduplicate_articles, is_korean, normalize_keywords
 
 
 class PreprocessorTests(unittest.TestCase):
@@ -41,6 +41,17 @@ class PreprocessorTests(unittest.TestCase):
         deduped = deduplicate_articles(articles)
 
         self.assertEqual([article.title for article in deduped], ["첫 번째 기사", "다른 기사"])
+
+    def test_is_korean_detects_hangul_characters(self):
+        self.assertTrue(is_korean("반도체"))
+        self.assertTrue(is_korean("AI 반도체"))
+        self.assertTrue(is_korean("ㄱ"))
+
+    def test_is_korean_returns_false_for_non_hangul(self):
+        self.assertFalse(is_korean("AI"))
+        self.assertFalse(is_korean("OpenAI 2026"))
+        self.assertFalse(is_korean(""))
+        self.assertFalse(is_korean(None))
 
 
 if __name__ == "__main__":

@@ -12,12 +12,13 @@
 
 ## 현재 MVP 방향
 
-- 뉴스 소스는 Google News RSS 하나로 제한한다.
+- 뉴스 소스는 키워드별로 Naver Search News API(한글) 또는 Google News RSS(그 외)로 라우팅한다.
 - 관심 키워드는 최대 3개를 사용한다.
 - 수집 범위는 최근 하루 뉴스로 제한한다.
 - Vector DB는 로컬 Chroma를 사용한다.
 - Upstage API key가 있으면 Upstage embedding/chat 모델을 사용한다.
 - Upstage API key가 없으면 demo AI 모드로 end-to-end 흐름을 확인할 수 있어야 한다.
+- Naver Client ID/Secret이 없으면 한글 키워드도 Google News RSS로 자동 우회한다.
 
 ## 작업 전 확인
 

@@ -4,7 +4,8 @@ from urllib.parse import quote_plus
 from xml.etree import ElementTree
 
 from daily_news_agent.models import NewsArticle
-from daily_news_agent.preprocessor import clean_text
+from daily_news_agent.naver_news import NaverNewsClient, NaverNewsError
+from daily_news_agent.preprocessor import clean_text, is_korean
 
 
 GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/search"
@@ -79,4 +80,42 @@ class GoogleNewsRssClient:
             raise NewsSourceError(f"Google News RSS 요청에 실패했습니다: {keyword}") from exc
 
         return parse_google_news_rss(response.text, keyword=keyword, limit=limit)
+
+
+NAVER_KEY_MISSING_MESSAGE = (
+    "Naver API 키가 설정되지 않아 한글 키워드도 Google News로 수집합니다. "
+    ".env에 NAVER_CLIENT_ID와 NAVER_CLIENT_SECRET을 추가하세요."
+)
+
+
+class NewsRouter:
+    def __init__(
+        self,
+        google_client: GoogleNewsRssClient,
+        naver_client: NaverNewsClient | None = None,
+    ) -> None:
+        self.google_client = google_client
+        self.naver_client = naver_client
+        self._naver_missing_warned = False
+
+    def fetch(self, keyword: str, limit: int = 10) -> tuple[list[NewsArticle], list[str]]:
+        messages: list[str] = []
+
+        if is_korean(keyword):
+            if self.naver_client is None:
+                if not self._naver_missing_warned:
+                    messages.append(NAVER_KEY_MISSING_MESSAGE)
+                    self._naver_missing_warned = True
+            else:
+                try:
+                    articles = self.naver_client.fetch(keyword, limit=limit)
+                    return articles, messages
+                except NaverNewsError as exc:
+                    messages.append(f"Naver 호출 실패로 Google News로 우회합니다: {exc}")
+
+        try:
+            return self.google_client.fetch(keyword, limit=limit), messages
+        except NewsSourceError as exc:
+            messages.append(str(exc))
+            return [], messages
 

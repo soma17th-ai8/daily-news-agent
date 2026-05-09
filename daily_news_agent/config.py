@@ -26,6 +26,8 @@ class Settings:
     smtp_password: str
     smtp_use_tls: bool
     smtp_use_ssl: bool
+    naver_client_id: str
+    naver_client_secret: str
 
     @classmethod
     def from_env(cls, load_env: bool = True) -> "Settings":
@@ -71,6 +73,8 @@ class Settings:
             smtp_password=os.getenv("SMTP_PASSWORD", ""),
             smtp_use_tls=_parse_bool(os.getenv("SMTP_USE_TLS", "true")),
             smtp_use_ssl=_parse_bool(os.getenv("SMTP_USE_SSL", "false")),
+            naver_client_id=os.getenv("NAVER_CLIENT_ID", "").strip(),
+            naver_client_secret=os.getenv("NAVER_CLIENT_SECRET", "").strip(),
         )
 
     def validate_mail_settings(self) -> None:
