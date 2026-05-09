@@ -9,6 +9,13 @@ from daily_news_agent.models import NewsArticle
 
 TAG_PATTERN = re.compile(r"<[^>]+>")
 WHITESPACE_PATTERN = re.compile(r"\s+")
+HANGUL_PATTERN = re.compile(r"[가-힣ㄱ-ㆎ]")
+
+
+def is_korean(text: str | None) -> bool:
+    if not text:
+        return False
+    return bool(HANGUL_PATTERN.search(text))
 
 
 def clean_text(value: str | None) -> str:

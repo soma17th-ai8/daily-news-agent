@@ -1,15 +1,34 @@
 import unittest
 
 from daily_news_agent.models import ArticleMatch, NewsArticle
+from daily_news_agent.naver_news import NaverNewsError
+from daily_news_agent.news_source import NAVER_KEY_MISSING_MESSAGE, NewsRouter
 from daily_news_agent.workflow import DailyNewsWorkflow
 
 
-class FakeNewsSource:
-    def __init__(self, articles_by_keyword):
-        self.articles_by_keyword = articles_by_keyword
+class FakeNewsClient:
+    def __init__(self, articles_by_keyword=None, error=None):
+        self.articles_by_keyword = articles_by_keyword or {}
+        self.error = error
+        self.fetch_calls = []
 
     def fetch(self, keyword, limit=10):
+        self.fetch_calls.append((keyword, limit))
+        if self.error is not None:
+            raise self.error
         return self.articles_by_keyword.get(keyword, [])[:limit]
+
+
+class FakeNewsRouter:
+    def __init__(self, articles_by_keyword=None, messages_by_keyword=None):
+        self.articles_by_keyword = articles_by_keyword or {}
+        self.messages_by_keyword = messages_by_keyword or {}
+
+    def fetch(self, keyword, limit=10):
+        return (
+            self.articles_by_keyword.get(keyword, [])[:limit],
+            list(self.messages_by_keyword.get(keyword, [])),
+        )
 
 
 class CountingAIClient:
@@ -62,6 +81,68 @@ def make_article(title, link, keyword):
     )
 
 
+class NewsRouterTests(unittest.TestCase):
+    def test_korean_keyword_uses_naver_when_available(self):
+        article = make_article("반도체 뉴스", "https://example.com/n", "반도체")
+        google = FakeNewsClient({"반도체": [make_article("Google 결과", "https://g/", "반도체")]})
+        naver = FakeNewsClient({"반도체": [article]})
+        router = NewsRouter(google_client=google, naver_client=naver)
+
+        articles, messages = router.fetch("반도체", limit=5)
+
+        self.assertEqual([a.link for a in articles], [article.link])
+        self.assertEqual(messages, [])
+        self.assertEqual(naver.fetch_calls, [("반도체", 5)])
+        self.assertEqual(google.fetch_calls, [])
+
+    def test_non_korean_keyword_uses_google(self):
+        article = make_article("AI", "https://g/ai", "AI")
+        google = FakeNewsClient({"AI": [article]})
+        naver = FakeNewsClient({"AI": [make_article("Naver AI", "https://n/", "AI")]})
+        router = NewsRouter(google_client=google, naver_client=naver)
+
+        articles, messages = router.fetch("AI", limit=5)
+
+        self.assertEqual([a.link for a in articles], [article.link])
+        self.assertEqual(messages, [])
+        self.assertEqual(google.fetch_calls, [("AI", 5)])
+        self.assertEqual(naver.fetch_calls, [])
+
+    def test_korean_keyword_falls_back_to_google_when_naver_missing(self):
+        google_article = make_article("Google 한글", "https://g/k", "반도체")
+        google = FakeNewsClient({"반도체": [google_article]})
+        router = NewsRouter(google_client=google, naver_client=None)
+
+        articles, messages = router.fetch("반도체", limit=5)
+
+        self.assertEqual([a.link for a in articles], [google_article.link])
+        self.assertEqual(messages, [NAVER_KEY_MISSING_MESSAGE])
+        self.assertEqual(google.fetch_calls, [("반도체", 5)])
+
+    def test_naver_missing_warning_emitted_only_once(self):
+        google = FakeNewsClient({"반도체": [], "스타트업": []})
+        router = NewsRouter(google_client=google, naver_client=None)
+
+        _, first_messages = router.fetch("반도체", limit=5)
+        _, second_messages = router.fetch("스타트업", limit=5)
+
+        self.assertEqual(first_messages, [NAVER_KEY_MISSING_MESSAGE])
+        self.assertEqual(second_messages, [])
+
+    def test_naver_failure_falls_back_to_google_with_message(self):
+        google_article = make_article("Google 우회", "https://g/back", "반도체")
+        google = FakeNewsClient({"반도체": [google_article]})
+        naver = FakeNewsClient(error=NaverNewsError("rate limit"))
+        router = NewsRouter(google_client=google, naver_client=naver)
+
+        articles, messages = router.fetch("반도체", limit=5)
+
+        self.assertEqual([a.link for a in articles], [google_article.link])
+        self.assertEqual(len(messages), 1)
+        self.assertIn("Naver 호출 실패", messages[0])
+        self.assertEqual(google.fetch_calls, [("반도체", 5)])
+
+
 class WorkflowTests(unittest.TestCase):
     def test_collect_and_store_skips_existing_articles_before_embedding(self):
         existing = make_article("기존 기사", "https://example.com/existing", "AI")
@@ -69,7 +150,7 @@ class WorkflowTests(unittest.TestCase):
         ai_client = CountingAIClient()
         vector_store = FakeVectorStore(existing_ids={existing.id})
         workflow = DailyNewsWorkflow(
-            news_source=FakeNewsSource({"AI": [existing, fresh]}),
+            news_router=FakeNewsRouter({"AI": [existing, fresh]}),
             vector_store=vector_store,
             ai_client=ai_client,
         )
@@ -88,7 +169,7 @@ class WorkflowTests(unittest.TestCase):
         ai_client = CountingAIClient()
         store = FakeVectorStore()
         workflow = DailyNewsWorkflow(
-            news_source=FakeNewsSource({"AI": [article]}),
+            news_router=FakeNewsRouter({"AI": [article]}),
             vector_store=store,
             ai_client=ai_client,
         )
@@ -98,12 +179,30 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(len(store.upserted_articles), 1)
         self.assertEqual(store.upserted_articles[0].tags, ["AI"])
 
+    def test_collect_and_store_propagates_router_messages_to_errors(self):
+        article = make_article("기사", "https://example.com/a", "반도체")
+        ai_client = CountingAIClient()
+        store = FakeVectorStore()
+        router = FakeNewsRouter(
+            articles_by_keyword={"반도체": [article]},
+            messages_by_keyword={"반도체": ["Naver 키 미설정"]},
+        )
+        workflow = DailyNewsWorkflow(
+            news_router=router,
+            vector_store=store,
+            ai_client=ai_client,
+        )
+
+        result = workflow.collect_and_store("반도체 산업", "반도체")
+
+        self.assertEqual(result.errors, ["Naver 키 미설정"])
+
     def test_generate_briefing_queries_with_keyword_metadata_filter_first(self):
         article = make_article("선별 기사", "https://example.com/selected", "AI")
         ai_client = CountingAIClient()
         vector_store = FakeVectorStore(matches=[ArticleMatch(article=article, score=0.8)])
         workflow = DailyNewsWorkflow(
-            news_source=FakeNewsSource({}),
+            news_router=FakeNewsRouter({}),
             vector_store=vector_store,
             ai_client=ai_client,
         )

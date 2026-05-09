@@ -71,6 +71,24 @@ class SettingsTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "587"):
             settings.validate_mail_settings()
 
+    def test_naver_credentials_default_to_empty_strings(self):
+        with patch.dict("os.environ", {}, clear=True):
+            settings = Settings.from_env(load_env=False)
+
+        self.assertEqual(settings.naver_client_id, "")
+        self.assertEqual(settings.naver_client_secret, "")
+
+    def test_naver_credentials_loaded_from_environment(self):
+        with patch.dict(
+            "os.environ",
+            {"NAVER_CLIENT_ID": " id-123 ", "NAVER_CLIENT_SECRET": " secret-xyz "},
+            clear=True,
+        ):
+            settings = Settings.from_env(load_env=False)
+
+        self.assertEqual(settings.naver_client_id, "id-123")
+        self.assertEqual(settings.naver_client_secret, "secret-xyz")
+
     def test_validate_mail_settings_rejects_tls_and_ssl_enabled_together(self):
         with patch.dict(
             "os.environ",

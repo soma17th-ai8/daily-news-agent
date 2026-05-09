@@ -5,7 +5,7 @@ from collections.abc import Callable
 
 from daily_news_agent.ai_client import AIClient
 from daily_news_agent.models import BriefingResult, CollectionResult, NewsArticle
-from daily_news_agent.news_source import GoogleNewsRssClient, NewsSourceError
+from daily_news_agent.news_source import NewsRouter
 from daily_news_agent.preprocessor import deduplicate_articles, normalize_keywords
 from daily_news_agent.vector_store import ChromaArticleStore
 
@@ -13,11 +13,11 @@ from daily_news_agent.vector_store import ChromaArticleStore
 class DailyNewsWorkflow:
     def __init__(
         self,
-        news_source: GoogleNewsRssClient,
+        news_router: NewsRouter,
         vector_store: ChromaArticleStore,
         ai_client: AIClient,
     ) -> None:
-        self.news_source = news_source
+        self.news_router = news_router
         self.vector_store = vector_store
         self.ai_client = ai_client
 
@@ -59,11 +59,10 @@ class DailyNewsWorkflow:
         collected_articles: list[NewsArticle] = []
         errors: list[str] = []
         for keyword in keywords:
-            self._report(progress, f"`{keyword}` 뉴스 RSS를 수집합니다.")
-            try:
-                collected_articles.extend(self.news_source.fetch(keyword, limit=per_keyword_limit))
-            except NewsSourceError as exc:
-                errors.append(str(exc))
+            self._report(progress, f"`{keyword}` 뉴스를 수집합니다.")
+            articles, messages = self.news_router.fetch(keyword, limit=per_keyword_limit)
+            collected_articles.extend(articles)
+            errors.extend(messages)
 
         self._report(progress, "수집된 기사를 정제하고 중복 링크를 제거합니다.")
         deduplicated_articles = deduplicate_articles(collected_articles)
