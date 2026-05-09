@@ -121,6 +121,7 @@ class DailyNewsWorkflow:
         )
         self._report(progress, f"선별 기사 {len(selected_articles)}건으로 브리핑을 생성합니다.")
         briefing = self.ai_client.generate_briefing(interest, selected_articles)
+        briefing = _append_tags_section(briefing, selected_articles)
 
         return BriefingResult(
             interest=interest,
@@ -150,3 +151,14 @@ class DailyNewsWorkflow:
     def _report(self, progress: Callable[[str], None] | None, message: str) -> None:
         if progress:
             progress(message)
+
+
+def _append_tags_section(briefing: str, articles: list[NewsArticle]) -> str:
+    tag_lines = [
+        f"- **{article.title}**: " + " ".join(f"`#{t}`" for t in article.tags)
+        for article in articles
+        if article.tags
+    ]
+    if not tag_lines:
+        return briefing
+    return briefing.rstrip() + "\n\n## 기사 태그\n" + "\n".join(tag_lines)
